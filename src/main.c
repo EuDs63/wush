@@ -115,6 +115,57 @@ int wush_launch(char **args)
     return 1;
 }
 
+int wush_handle_pipe(int pipe_index,char **args)
+{
+    int status;
+    pid_t pid;
+
+    //printf("pipe_index:%d\n",pipe_index);
+
+    // Pipe is present, execute commands on both sides of the pipe
+    char **first_command = args;
+    char **second_command = &args[pipe_index + 1];
+
+    int pipefd[2];
+    if (pipe(pipefd) == -1)
+    {
+        perror("wush");
+        exit(EXIT_FAILURE);
+    }
+
+    pid = fork();
+
+    if (pid == 0)
+    {
+        // Child process - execute the first command
+        close(pipefd[0]);               // Close unused read end of the pipe
+        dup2(pipefd[1], STDOUT_FILENO); // Redirect standard output to the pipe
+        close(pipefd[1]);               // Close the write end of the pipe
+
+        if (execvp(first_command[0], first_command) == -1)
+        {
+            perror("wush in child process");
+            exit(EXIT_FAILURE);
+        }
+    }
+    else if (pid > 0)
+    {
+        // Parent process
+        waitpid(pid, &status, 0); // Wait for the child to finish
+
+        close(pipefd[1]);              // Close the write end of the pipe
+        dup2(pipefd[0], STDIN_FILENO); // Redirect standard input to the pipe
+        close(pipefd[0]);              // Close the read end of the pipe
+
+        // Execute the second command
+        if (execvp(second_command[0], second_command) == -1)
+        {
+            perror("wush in parent process");
+            exit(EXIT_FAILURE);
+        }
+    }
+}
+
 int wush_execute(char **args)
 {
     int i;
@@ -131,6 +182,24 @@ int wush_execute(char **args)
             return (*builtin_func[i])(args);
         }
     }
+
+    //判断是否为pipe
+    int pipe_index = -1;
+    for(int i=0;args[i] != NULL;i++)
+    {
+        if(strcmp(args[i],"|") == 0)
+        {
+            pipe_index = i;
+            args[i] = NULL; // Replace "|" with NULL to terminate the first command
+            break;
+        }
+    }
+
+    if(pipe_index != -1)
+    {
+        return wush_handle_pipe(pipe_index,args);
+    }
+
     // 不是内置命令，调用launch
     return wush_launch(args);
 }
