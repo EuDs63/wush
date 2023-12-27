@@ -176,11 +176,12 @@ int wush_handle_pipe(char **args)
         close(pipefd[0]);              // Close the read end of the pipe
 
         // Execute the second command
-        if (execvp(second_command[0], second_command) == -1)
-        {
-            perror("wush in parent process");
-            exit(EXIT_FAILURE);
-        }
+        // if (execvp(second_command[0], second_command) == -1)
+        // {
+        //     perror("wush in parent process");
+        //     exit(EXIT_FAILURE);
+        // }
+        return wush_launch(second_command);
     }
 }
 
