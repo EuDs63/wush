@@ -1,5 +1,5 @@
-#include<stdio.h>
-#include<sys/wait.h>
+#include <stdio.h>
+#include <sys/wait.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
@@ -135,12 +135,13 @@ int wush_execute(char **args)
     return wush_launch(args);
 }
 
-void wush_loop(void)
+int main(int argc, char **argv)
 {
     char *line;
     char **args;
     int status;
 
+    // loop
     do
     {
         wush_print_prompt();
@@ -151,12 +152,6 @@ void wush_loop(void)
         free(line);
         free(args);
     } while (status);
-}
-
-int main(int argc, char **argv)
-{
-    // loop
-    wush_loop();
 
     return EXIT_SUCCESS;
 }
