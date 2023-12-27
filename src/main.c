@@ -115,10 +115,28 @@ int wush_launch(char **args)
     return 1;
 }
 
-int wush_handle_pipe(int pipe_index,char **args)
+int wush_handle_pipe(char **args)
 {
     int status;
     pid_t pid;
+
+    // 判断是否为pipe
+    int pipe_index = -1;
+    for (int i = 0; args[i] != NULL; i++)
+    {
+        if (strcmp(args[i], "|") == 0)
+        {
+            pipe_index = i;
+            args[i] = NULL; // Replace "|" with NULL to terminate the first command
+            break;
+        }
+    }
+
+    if (pipe_index == -1)
+    {
+        // No pipe
+        return wush_launch(args);
+    }
 
     //printf("pipe_index:%d\n",pipe_index);
 
@@ -183,25 +201,10 @@ int wush_execute(char **args)
         }
     }
 
-    //判断是否为pipe
-    int pipe_index = -1;
-    for(int i=0;args[i] != NULL;i++)
-    {
-        if(strcmp(args[i],"|") == 0)
-        {
-            pipe_index = i;
-            args[i] = NULL; // Replace "|" with NULL to terminate the first command
-            break;
-        }
-    }
-
-    if(pipe_index != -1)
-    {
-        return wush_handle_pipe(pipe_index,args);
-    }
+    return wush_handle_pipe(args);
 
     // 不是内置命令，调用launch
-    return wush_launch(args);
+    // return wush_launch(args);
 }
 
 int main(int argc, char **argv)
