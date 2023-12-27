@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include"../include/builtin.h"
 
 void wush_print_prompt(void)
 {
@@ -112,72 +113,6 @@ int wush_launch(char **args)
     }
 
     return 1;
-}
-
-/*
-    * 内置命令
-    * 1. cd
-    * 2. help
-    * 3. exit
-*/
-int wush_cd(char **args);
-int wush_help(char **args);
-int wush_exit(char **args);
-
-char *builtin_str[] = {
-    "cd",
-    "help",
-    "exit"
-};
-
-int (*builtin_func[]) (char **) = {
-    &wush_cd,
-    &wush_help,
-    &wush_exit
-};
-
-int wush_num_builtins()
-{
-    return sizeof(builtin_str) / sizeof(char *);
-}
-
-int wush_cd(char **args)
-{
-    if(args[1] == NULL)
-    {
-        // 无参数
-        fprintf(stderr,"wush: expected argument to \"cd\"\n");
-    }
-    else
-    {
-        // 改变目录
-        if(chdir(args[1]) != 0)
-        {
-            perror("wush");
-        }
-    }
-
-    return 1;
-}
-
-int wush_help(char **args)
-{
-    int i;
-
-    printf("Welcome to use wush\n");
-    printf("The following are built in:\n");
-
-    for(i=0;i < wush_num_builtins();i++)
-    {
-        printf("  %s\n",builtin_str[i]);
-    }
-
-    return 1;
-}
-
-int wush_exit(char **args)
-{
-    return 0;
 }
 
 int wush_execute(char **args)
