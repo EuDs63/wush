@@ -156,33 +156,33 @@ int wush_handle_pipe(char **args)
     if (pid == 0)
     {
         // Child process - execute the first command
-        close(pipefd[0]);               // Close unused read end of the pipe
-        dup2(pipefd[1], STDOUT_FILENO); // Redirect standard output to the pipe
-        close(pipefd[1]);               // Close the write end of the pipe
+        close(pipefd[0]);               // 关闭未使用的读取端，因为子进程只负责写入
+        // close(STDOUT_FILENO);           // 关闭标准输出
+        // dup(pipefd[1]);                 // 将标准输出重定向到管道的写入端
 
-        if (execvp(first_command[0], first_command) == -1)
-        {
-            perror("wush in child process");
-            exit(EXIT_FAILURE);
-        }
+        dup2(pipefd[1], STDOUT_FILENO); // 将标准输出重定向到管道的写入端
+
+        close(pipefd[1]);               // Close the write end of the pipe
+        wush_launch(first_command);     // 执行第一个命令
+
     }
     else if (pid > 0)
     {
-        // Parent process
-        waitpid(pid, &status, 0); // Wait for the child to finish
-
+        // Parent process - execute the second command
         close(pipefd[1]);              // Close the write end of the pipe
+
+        // close(STDIN_FILENO);           // 关闭标准输入
+        // dup(pipefd[0]);                // 将标准输入重定向到管道的读取端
+
         dup2(pipefd[0], STDIN_FILENO); // Redirect standard input to the pipe
+        
         close(pipefd[0]);              // Close the read end of the pipe
 
-        // Execute the second command
-        // if (execvp(second_command[0], second_command) == -1)
-        // {
-        //     perror("wush in parent process");
-        //     exit(EXIT_FAILURE);
-        // }
-        return wush_launch(second_command);
+        waitpid(pid, &status, 0); // Wait for the child to finish
+        wush_handle_pipe(second_command);
     }
+
+    return 1;
 }
 
 int wush_execute(char **args)
@@ -221,6 +221,7 @@ int main(int argc, char **argv)
         line = wush_read_line();
         args = wush_split_line(line);
         status = wush_execute(args);
+        //printf("status:%d\n",status);
 
         free(line);
         free(args);
