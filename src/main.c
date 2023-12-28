@@ -157,6 +157,7 @@ int wush_handle_pipe(char **args)
     {
         // Child process - execute the first command
         close(pipefd[0]);               // 关闭未使用的读取端，因为子进程只负责写入
+
         // close(STDOUT_FILENO);           // 关闭标准输出
         // dup(pipefd[1]);                 // 将标准输出重定向到管道的写入端
 
