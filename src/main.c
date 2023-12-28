@@ -163,7 +163,7 @@ int wush_handle_pipe(char **args)
 
         dup2(pipefd[1], STDOUT_FILENO); // 将标准输出重定向到管道的写入端
 
-        close(pipefd[1]);               // Close the write end of the pipe
+        //close(pipefd[1]);               // Close the write end of the pipe
         wush_launch(first_command);     // 执行第一个命令
         exit(EXIT_SUCCESS);
     }
@@ -177,7 +177,7 @@ int wush_handle_pipe(char **args)
 
         dup2(pipefd[0], STDIN_FILENO); // Redirect standard input to the pipe
         
-        close(pipefd[0]);              // Close the read end of the pipe
+        //close(pipefd[0]);              // Close the read end of the pipe
 
         waitpid(pid, &status, 0); // Wait for the child to finish
 
@@ -209,7 +209,26 @@ int wush_execute(char **args)
         }
     }
 
-    return wush_handle_pipe(args);
+    // 判断是否为pipe
+    pid_t wu_pid;
+    int wu_status;
+    wu_pid = fork();
+    if(wu_pid == 0)
+    {
+        wush_handle_pipe(args);
+        exit(EXIT_SUCCESS);
+    }
+    else if(wu_pid < 0)
+    {
+        perror("wush");
+    }
+    else
+    {
+        do {
+            wu_pid = waitpid(wu_pid,&wu_status,WUNTRACED);
+        } while(!WIFEXITED(wu_status) && !WIFSIGNALED(wu_status));
+    }
+    return 1;
 
     // 不是内置命令，调用launch
     // return wush_launch(args);
