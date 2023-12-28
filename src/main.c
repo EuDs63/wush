@@ -4,11 +4,44 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <fcntl.h>
 #include"../include/builtin.h"
 
-void wush_print_prompt(void)
+void wush_print_prompt()
 {
-    printf("> ");
+    // ANSI escape codes for colors
+    const char *red_color = "\033[1;31m";
+    const char *reset_color = "\033[0m";
+
+    char hostname[256];
+    if (gethostname(hostname, sizeof(hostname)) == -1)
+    {
+        perror("wush");
+        exit(EXIT_FAILURE);
+    }
+
+    char cwd[1024];
+    if (getcwd(cwd, sizeof(cwd)) == NULL)
+    {
+        perror("wush");
+        exit(EXIT_FAILURE);
+    }
+
+    printf("%s%s@%s%s:%s%s%s ",
+           red_color, getenv("USER"), hostname, reset_color,
+           red_color, cwd, reset_color);
+
+    // Print "#" for root user, otherwise "$"
+    if (geteuid() == 0)
+    {
+        printf("%s#%s ", red_color, reset_color);
+    }
+    else
+    {
+        printf("%s$%s ", red_color, reset_color);
+    }
+
+    fflush(stdout);
 }
 
 char *wush_read_line(void)
@@ -115,6 +148,64 @@ int wush_launch(char **args)
     return 1;
 }
 
+// Handle input and output redirection
+void handle_redirection(char **command)
+{
+    int in_redirect_index = -1;
+    int out_redirect_index = -1;
+
+    // Find the input and output redirection indices
+    for (int i = 0; command[i] != NULL; i++)
+    {
+        if (strcmp(command[i], "<") == 0)
+        {
+            in_redirect_index = i;
+        }
+        else if (strcmp(command[i], ">") == 0)
+        {
+            out_redirect_index = i;
+        }
+    }
+
+    // Handle input redirection
+    if (in_redirect_index != -1)
+    {
+        char *filename = command[in_redirect_index + 1];
+        int fd = open(filename, O_RDONLY);
+        if (fd == -1)
+        {
+            perror("wush");
+            exit(EXIT_FAILURE);
+        }
+
+        dup2(fd, STDIN_FILENO);
+        close(fd);
+
+        // Remove the redirection symbols and the filename from the command
+        command[in_redirect_index] = NULL;
+        command[in_redirect_index + 1] = NULL;
+    }
+
+    // Handle output redirection
+    if (out_redirect_index != -1)
+    {
+        char *filename = command[out_redirect_index + 1];
+        int fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+        if (fd == -1)
+        {
+            perror("wush");
+            exit(EXIT_FAILURE);
+        }
+
+        dup2(fd, STDOUT_FILENO);
+        close(fd);
+
+        // Remove the redirection symbols and the filename from the command
+        command[out_redirect_index] = NULL;
+        command[out_redirect_index + 1] = NULL;
+    }
+}
+
 int wush_handle_pipe(char **args)
 {
     int status;
@@ -134,6 +225,7 @@ int wush_handle_pipe(char **args)
 
     if (pipe_index == -1)
     {
+        handle_redirection(args);
         // No pipe
         return wush_launch(args);
     }
@@ -163,6 +255,9 @@ int wush_handle_pipe(char **args)
 
         dup2(pipefd[1], STDOUT_FILENO); // 将标准输出重定向到管道的写入端
 
+        // Handle redirection for the first command
+        handle_redirection(first_command);
+
         //close(pipefd[1]);               // Close the write end of the pipe
         wush_launch(first_command);     // 执行第一个命令
         exit(EXIT_SUCCESS);
@@ -183,6 +278,9 @@ int wush_handle_pipe(char **args)
 
         // Restore standard input to terminal
         dup2(STDIN_FILENO, STDIN_FILENO);
+
+        // Handle redirection for the second command
+        handle_redirection(second_command);
 
         //printf("now execute second command, %s\n", second_command[0]);
         wush_handle_pipe(second_command);
