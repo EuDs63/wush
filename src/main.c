@@ -165,7 +165,7 @@ int wush_handle_pipe(char **args)
 
         close(pipefd[1]);               // Close the write end of the pipe
         wush_launch(first_command);     // 执行第一个命令
-
+        exit(EXIT_SUCCESS);
     }
     else if (pid > 0)
     {
@@ -180,7 +180,13 @@ int wush_handle_pipe(char **args)
         close(pipefd[0]);              // Close the read end of the pipe
 
         waitpid(pid, &status, 0); // Wait for the child to finish
+
+        // Restore standard input to terminal
+        dup2(STDIN_FILENO, STDIN_FILENO);
+
+        //printf("now execute second command, %s\n", second_command[0]);
         wush_handle_pipe(second_command);
+        exit(EXIT_SUCCESS);
     }
 
     return 1;
